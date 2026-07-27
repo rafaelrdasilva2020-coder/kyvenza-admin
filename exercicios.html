@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KYVENZA Admin | Exercícios</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/kyvenza.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen pb-16">
+
+  <header class="flex items-center justify-between px-5 py-4 border-b border-white/5">
+    <div class="flex items-center gap-2">
+      <img src="assets/logo.png" class="w-8 h-8 rounded-full"/>
+      <span class="font-display font-bold text-lg gradient-text">KYVENZA ADMIN</span>
+    </div>
+    <button onclick="sairAdmin()" class="text-xs font-mono text-[#87957b] border border-[#3e4a34] rounded-full px-3 py-1">SAIR</button>
+  </header>
+
+  <nav class="flex gap-2 px-5 pt-4">
+    <a href="alunos.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">ALUNOS</a>
+    <a href="exercicios.html" class="font-mono text-xs px-3 py-1.5 rounded-full bg-[#1f1f1f] text-[#76ff03] border border-[#3e4a34]">EXERCÍCIOS</a>
+    <a href="planos.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">PLANOS</a>
+  </nav>
+
+  <main class="px-5 pt-6">
+    <div class="flex items-center justify-between mb-2">
+      <h1 class="font-display text-xl font-bold">Biblioteca de exercícios</h1>
+      <button onclick="abrirModalNovoExercicio()" class="gradient-cta font-display font-semibold text-sm py-2 px-4 rounded-lg">+ NOVO</button>
+    </div>
+    <p class="text-xs text-[#87957b] mb-3">Clique em "Buscar no WorkoutX" pra vincular o gif oficial do exercício. Se não achar equivalente, use o campo de link do YouTube como alternativa manual.</p>
+
+    <button onclick="vincularTudoAutomaticamente()" id="btn-vincular-lote" class="w-full neon-border-cyan rounded-lg py-3 font-display font-semibold text-sm text-[#00daf3] mb-5">
+      ⚡ VINCULAR TODOS AUTOMATICAMENTE (WorkoutX)
+    </button>
+    <div id="resultado-lote" class="hidden mb-5"></div>
+
+    <input id="busca" type="text" placeholder="Buscar exercício..."
+      class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm mb-5 outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+
+    <div id="lista-exercicios" class="space-y-3">
+      <p class="text-sm text-[#87957b] font-mono">Carregando exercícios...</p>
+    </div>
+  </main>
+
+  <!-- Modal: novo exercício -->
+  <div id="modal-novo-exercicio" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-5">
+    <div class="glass-card rounded-xl p-5 w-full max-w-sm">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-display font-semibold text-lg">Novo exercício</h3>
+        <button onclick="fecharModalNovoExercicio()" class="text-2xl leading-none">×</button>
+      </div>
+      <form id="form-novo-exercicio" class="space-y-3">
+        <input id="novo-ex-nome" required placeholder="Nome do exercício (ex: Supino Reto)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <input id="novo-ex-grupo" required placeholder="Grupo muscular (ex: Peito)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <select id="novo-ex-categoria" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3]">
+          <option value="composto">Composto</option>
+          <option value="isolado">Isolado</option>
+          <option value="cardio">Cardio</option>
+        </select>
+        <input id="novo-ex-youtube" placeholder="ID ou link do YouTube (opcional por enquanto)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <button type="submit" class="w-full gradient-cta font-display font-semibold py-2.5 rounded-lg">SALVAR</button>
+        <p id="erro-novo-exercicio" class="text-sm text-red-400 text-center"></p>
+      </form>
+    </div>
+  </div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let todosOsExercicios = [];
+
+  function abrirModalNovoExercicio() { document.getElementById("modal-novo-exercicio").classList.remove("hidden"); }
+  function fecharModalNovoExercicio() {
+    document.getElementById("modal-novo-exercicio").classList.add("hidden");
+    document.getElementById("form-novo-exercicio").reset();
+    document.getElementById("erro-novo-exercicio").textContent = "";
+  }
+
+  // Aceita tanto um ID puro (dQw4w9WgXcQ) quanto uma URL completa do YouTube,
+  // e sempre guarda só o ID no banco.
+  function extrairYoutubeId(valor) {
+    if (!valor) return null;
+    valor = valor.trim();
+    const padroes = [
+      /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/,
+    ];
+    for (const padrao of padroes) {
+      const match = valor.match(padrao);
+      if (match) return match[1];
+    }
+    // Se não bateu com nenhum padrão de URL, assume que já é o ID puro
+    return /^[\w-]{11}$/.test(valor) ? valor : valor;
+  }
+
+  function renderizarExercicios() {
+    const busca = document.getElementById("busca").value.trim().toLowerCase();
+    const listaEl = document.getElementById("lista-exercicios");
+
+    let filtrados = todosOsExercicios;
+    if (busca) filtrados = filtrados.filter(ex => ex.nome.toLowerCase().includes(busca) || ex.grupo_muscular.toLowerCase().includes(busca));
+
+    if (filtrados.length === 0) {
+      listaEl.innerHTML = `<p class="text-sm text-[#87957b] font-mono">Nenhum exercício encontrado.</p>`;
+      return;
+    }
+
+    listaEl.innerHTML = filtrados.map(ex => `
+      <div class="glass-card rounded-lg p-4" id="card-ex-${ex.id}">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="font-display font-semibold">${ex.nome}</p>
+            <p class="text-xs text-[#87957b] font-mono">${ex.codigo ? ex.codigo + " • " : ""}${ex.grupo_muscular} • ${ex.equipamento || ex.categoria || "-"}</p>
+          </div>
+          <span class="font-mono text-[10px] px-2 py-0.5 rounded-full border ${ex.workoutx_exercise_id || ex.youtube_id ? "border-[#76ff03] text-[#76ff03]" : "border-[#3e4a34] text-[#87957b]"}">
+            ${ex.workoutx_exercise_id ? "WORKOUTX" : ex.youtube_id ? "YOUTUBE" : "SEM VÍDEO"}
+          </span>
+        </div>
+
+        <div class="flex gap-2 mb-2">
+          <input
+            type="text"
+            placeholder="Buscar no WorkoutX (ex: ${ex.nome})"
+            id="busca-wx-${ex.id}"
+            class="flex-1 bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"
+          />
+          <button onclick="buscarNoWorkoutX('${ex.id}', '${ex.nome.replace(/'/g, "\\'")}')" class="font-display font-semibold text-xs px-3 rounded-lg border border-[#00daf3] text-[#00daf3] whitespace-nowrap">🔍 BUSCAR</button>
+        </div>
+
+        <div id="resultados-wx-${ex.id}" class="space-y-2 mb-2"></div>
+
+        <details class="text-xs">
+          <summary class="text-[#87957b] cursor-pointer font-mono">Alternativa manual (link do YouTube)</summary>
+          <div class="flex gap-2 mt-2">
+            <input
+              type="text"
+              value="${ex.youtube_id || ""}"
+              placeholder="Cole o ID ou link do YouTube..."
+              id="youtube-input-${ex.id}"
+              class="flex-1 bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b] font-mono"
+            />
+            <button onclick="salvarVideo('${ex.id}')" class="font-display font-semibold text-xs px-4 rounded-lg border border-[#3e4a34]">SALVAR</button>
+          </div>
+        </details>
+      </div>
+    `).join("");
+  }
+
+  async function vincularTudoAutomaticamente() {
+    const pendentesCount = todosOsExercicios.filter(ex => !ex.workoutx_exercise_id).length;
+    if (pendentesCount === 0) {
+      alert("Todos os exercícios já têm vídeo/gif vinculado.");
+      return;
+    }
+
+    const confirmou = confirm(
+      `Isso vai buscar ${pendentesCount} exercício(s) na WorkoutX automaticamente. No plano Free (30 chamadas/min), pode ser necessário clicar de novo depois de ~1 minuto pra terminar todos. Continuar?`
+    );
+    if (!confirmou) return;
+
+    const btn = document.getElementById("btn-vincular-lote");
+    const resultadoEl = document.getElementById("resultado-lote");
+    btn.disabled = true;
+    btn.textContent = "Vinculando... isso pode levar um tempo";
+    resultadoEl.classList.add("hidden");
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/workoutx-vincular-lote`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const dados = await resp.json();
+
+      btn.disabled = false;
+      btn.textContent = "⚡ VINCULAR TODOS AUTOMATICAMENTE (WorkoutX)";
+
+      if (!resp.ok) {
+        alert(dados.erro || "Erro ao vincular em lote.");
+        return;
+      }
+
+      resultadoEl.classList.remove("hidden");
+      resultadoEl.innerHTML = `
+        <div class="glass-card rounded-lg p-4 text-sm">
+          <p class="text-[#76ff03] font-semibold mb-1">${dados.vinculados.length} vinculado(s) automaticamente</p>
+          ${dados.parou_por_limite ? `
+            <p class="text-[#00daf3] mt-2">Parou porque bateu no limite de requisições por minuto da WorkoutX. Aguarde ~1 minuto e clique no botão de novo pra continuar de onde parou.</p>
+          ` : ""}
+          ${dados.sem_match.length > 0 ? `
+            <p class="text-[#87957b] mt-2 mb-1">${dados.sem_match.length} exercício(s) sem match confiável — revise manualmente abaixo:</p>
+            <ul class="text-xs text-[#87957b] font-mono list-disc list-inside">
+              ${dados.sem_match.map((s) => `<li>${s.nome} (${s.motivo})</li>`).join("")}
+            </ul>
+          ` : ""}
+        </div>
+      `;
+
+      await carregarExercicios();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "⚡ VINCULAR TODOS AUTOMATICAMENTE (WorkoutX)";
+      alert("Erro de conexão ao vincular em lote.");
+    }
+  }
+
+  async function carregarExercicios() {
+    const { data, error } = await supabase
+      .from("exercicios")
+      .select("id, nome, grupo_muscular, categoria, equipamento, codigo, youtube_id, workoutx_exercise_id, workoutx_matched_nome")
+      .eq("ativo", true)
+      .order("grupo_muscular", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      document.getElementById("lista-exercicios").innerHTML = `<p class="text-sm text-red-400">Erro ao carregar exercícios.</p>`;
+      return;
+    }
+    todosOsExercicios = data;
+    renderizarExercicios();
+  }
+
+  async function buscarNoWorkoutX(exercicioId, nomeSugerido) {
+    const inputBusca = document.getElementById(`busca-wx-${exercicioId}`);
+    const termo = (inputBusca.value || nomeSugerido).trim();
+    const resultadosEl = document.getElementById(`resultados-wx-${exercicioId}`);
+    resultadosEl.innerHTML = `<p class="text-xs text-[#87957b] font-mono">Buscando...</p>`;
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/workoutx-search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ termo }),
+      });
+      const dados = await resp.json();
+
+      if (!resp.ok) {
+        resultadosEl.innerHTML = `<p class="text-xs text-red-400">${dados.erro || "Erro na busca."}</p>`;
+        return;
+      }
+
+      const resultados = dados.resultados || [];
+      if (resultados.length === 0) {
+        resultadosEl.innerHTML = `<p class="text-xs text-[#87957b] font-mono">Nenhum resultado. Tente outro termo ou use o YouTube manual abaixo.</p>`;
+        return;
+      }
+
+      resultadosEl.innerHTML = resultados.map((r) => `
+        <div class="bg-[#1b1b1b] rounded-lg p-2 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold truncate">${r.name}</p>
+            <p class="text-[10px] text-[#87957b] font-mono truncate">${r.bodyPart || ""} • ${r.target || ""} • ${r.equipment || ""}</p>
+          </div>
+          <button
+            onclick='vincularGifWorkoutX("${exercicioId}", ${JSON.stringify(r.id)}, ${JSON.stringify(r.name)})'
+            class="font-mono text-[10px] border border-[#3e4a34] rounded-full px-2 py-1 hover:border-[#76ff03] hover:text-[#76ff03] whitespace-nowrap"
+          >
+            USAR ESTE
+          </button>
+        </div>
+      `).join("");
+    } catch (err) {
+      console.error(err);
+      resultadosEl.innerHTML = `<p class="text-xs text-red-400">Erro de conexão na busca.</p>`;
+    }
+  }
+
+  async function vincularGifWorkoutX(exercicioId, workoutxId, nomeEncontrado) {
+    const { error } = await supabase
+      .from("exercicios")
+      .update({
+        workoutx_exercise_id: String(workoutxId),
+        workoutx_matched_nome: nomeEncontrado,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", exercicioId);
+
+    if (error) {
+      alert("Erro ao vincular gif: " + error.message);
+      return;
+    }
+    await carregarExercicios();
+  }
+
+  async function salvarVideo(exercicioId) {
+    const valorBruto = document.getElementById(`youtube-input-${exercicioId}`).value;
+    const youtubeId = extrairYoutubeId(valorBruto);
+
+    const { error } = await supabase
+      .from("exercicios")
+      .update({ youtube_id: youtubeId || null, atualizado_em: new Date().toISOString() })
+      .eq("id", exercicioId);
+
+    if (error) {
+      alert("Erro ao salvar vídeo: " + error.message);
+      return;
+    }
+    await carregarExercicios();
+  }
+
+  document.getElementById("busca").addEventListener("input", renderizarExercicios);
+
+  document.getElementById("form-novo-exercicio").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro-novo-exercicio");
+    erroEl.textContent = "";
+
+    const nome = document.getElementById("novo-ex-nome").value.trim();
+    const grupo_muscular = document.getElementById("novo-ex-grupo").value.trim();
+    const categoria = document.getElementById("novo-ex-categoria").value;
+    const youtube_id = extrairYoutubeId(document.getElementById("novo-ex-youtube").value);
+
+    const { error } = await supabase.from("exercicios").insert({ nome, grupo_muscular, categoria, youtube_id: youtube_id || null });
+
+    if (error) {
+      erroEl.textContent = "Erro ao salvar: " + error.message;
+      return;
+    }
+
+    fecharModalNovoExercicio();
+    await carregarExercicios();
+  });
+
+  (async () => {
+    const admin = await exigirAdmin();
+    if (!admin) return;
+    await carregarExercicios();
+  })();
+</script>
+</body>
+</html>

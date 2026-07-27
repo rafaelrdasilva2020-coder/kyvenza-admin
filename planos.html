@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KYVENZA Admin | Planos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/kyvenza.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen pb-16">
+
+  <header class="flex items-center justify-between px-5 py-4 border-b border-white/5">
+    <div class="flex items-center gap-2">
+      <img src="assets/logo.png" class="w-8 h-8 rounded-full"/>
+      <span class="font-display font-bold text-lg gradient-text">KYVENZA ADMIN</span>
+    </div>
+    <button onclick="sairAdmin()" class="text-xs font-mono text-[#87957b] border border-[#3e4a34] rounded-full px-3 py-1">SAIR</button>
+  </header>
+
+  <nav class="flex gap-2 px-5 pt-4">
+    <a href="alunos.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">ALUNOS</a>
+    <a href="exercicios.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">EXERCÍCIOS</a>
+    <a href="planos.html" class="font-mono text-xs px-3 py-1.5 rounded-full bg-[#1f1f1f] text-[#76ff03] border border-[#3e4a34]">PLANOS</a>
+  </nav>
+
+  <main class="px-5 pt-6">
+    <h1 class="font-display text-xl font-bold mb-1">Planos de assinatura</h1>
+    <p class="text-xs text-[#87957b] mb-5">Cada plano criado aqui gera um link de checkout de verdade no Mercado Pago. Depois de criado, o valor não pode ser editado — crie um novo plano e desative o antigo.</p>
+
+    <div id="lista-planos" class="space-y-3 mb-6">
+      <p class="text-sm text-[#87957b] font-mono">Carregando planos...</p>
+    </div>
+
+    <button onclick="abrirModalNovoPlano()" class="gradient-cta font-display font-semibold text-sm py-2.5 px-4 rounded-lg w-full">+ CRIAR NOVO PLANO</button>
+  </main>
+
+  <!-- Modal: novo plano -->
+  <div id="modal-novo-plano" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-5">
+    <div class="glass-card rounded-xl p-5 w-full max-w-sm">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-display font-semibold text-lg">Novo plano</h3>
+        <button onclick="fecharModalNovoPlano()" class="text-2xl leading-none">×</button>
+      </div>
+      <form id="form-novo-plano" class="space-y-3">
+        <select id="novo-chave" required class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3]">
+          <option value="">Selecione o tipo...</option>
+          <option value="mensal">Mensal</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="semestral">Semestral</option>
+        </select>
+        <input id="novo-nome" required placeholder="Nome exibido (ex: Plano Mensal)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <input id="novo-valor" type="number" step="0.01" required placeholder="Valor em R$ (ex: 39.90)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <input id="novo-frequencia" type="number" required placeholder="Frequência em meses (1, 3 ou 12)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <button type="submit" id="btn-salvar-plano" class="w-full gradient-cta font-display font-semibold py-2.5 rounded-lg">CRIAR NO MERCADO PAGO</button>
+        <p id="erro-novo-plano" class="text-sm text-red-400 text-center"></p>
+      </form>
+    </div>
+  </div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  function abrirModalNovoPlano() { document.getElementById("modal-novo-plano").classList.remove("hidden"); }
+  function fecharModalNovoPlano() {
+    document.getElementById("modal-novo-plano").classList.add("hidden");
+    document.getElementById("form-novo-plano").reset();
+    document.getElementById("erro-novo-plano").textContent = "";
+  }
+
+  async function carregarPlanos() {
+    const { data, error } = await supabase.from("planos_assinatura").select("*").order("frequencia_meses", { ascending: true });
+    const listaEl = document.getElementById("lista-planos");
+
+    if (error) {
+      listaEl.innerHTML = `<p class="text-sm text-red-400">Erro ao carregar planos.</p>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      listaEl.innerHTML = `<p class="text-sm text-[#87957b] font-mono">Nenhum plano criado ainda.</p>`;
+      return;
+    }
+
+    listaEl.innerHTML = data.map(p => `
+      <div class="glass-card rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="font-display font-semibold">${p.nome}</p>
+            <p class="text-xs text-[#87957b] font-mono">R$ ${Number(p.valor).toFixed(2)} • a cada ${p.frequencia_meses} mês(es)</p>
+          </div>
+          <span class="font-mono text-[10px] px-2 py-0.5 rounded-full border ${p.ativo ? "border-[#76ff03] text-[#76ff03]" : "border-[#3e4a34] text-[#87957b]"}">${p.ativo ? "ATIVO" : "INATIVO"}</span>
+        </div>
+        ${p.checkout_url ? `
+          <div class="flex gap-2">
+            <input readonly value="${p.checkout_url}" class="flex-1 bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-2 py-1.5 text-xs font-mono text-[#87957b]" onclick="this.select()"/>
+            <button onclick="alternarPlanoAtivo('${p.id}', ${p.ativo})" class="font-mono text-[10px] border border-[#3e4a34] rounded-lg px-2">${p.ativo ? "DESATIVAR" : "ATIVAR"}</button>
+          </div>
+        ` : `<p class="text-xs text-red-400">Link de checkout não gerado.</p>`}
+      </div>
+    `).join("");
+  }
+
+  async function alternarPlanoAtivo(id, ativoAtual) {
+    await supabase.from("planos_assinatura").update({ ativo: !ativoAtual, atualizado_em: new Date().toISOString() }).eq("id", id);
+    await carregarPlanos();
+  }
+
+  document.getElementById("form-novo-plano").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btn-salvar-plano");
+    const erroEl = document.getElementById("erro-novo-plano");
+    erroEl.textContent = "";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    const payload = {
+      chave: document.getElementById("novo-chave").value,
+      nome: document.getElementById("novo-nome").value.trim(),
+      valor: parseFloat(document.getElementById("novo-valor").value),
+      frequencia_meses: parseInt(document.getElementById("novo-frequencia").value, 10),
+    };
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/mercadopago-criar-plano`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(payload),
+      });
+      const resultado = await resp.json();
+
+      btn.disabled = false;
+      btn.textContent = "CRIAR NO MERCADO PAGO";
+
+      if (!resp.ok) {
+        erroEl.textContent = resultado.erro || "Erro ao criar plano.";
+        return;
+      }
+
+      fecharModalNovoPlano();
+      await carregarPlanos();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "CRIAR NO MERCADO PAGO";
+      erroEl.textContent = "Erro de conexão.";
+    }
+  });
+
+  (async () => {
+    const admin = await exigirAdmin();
+    if (!admin) return;
+    await carregarPlanos();
+  })();
+</script>
+</body>
+</html>

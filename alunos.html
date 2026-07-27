@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KYVENZA Admin | Alunos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/kyvenza.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen pb-16">
+
+  <header class="flex items-center justify-between px-5 py-4 border-b border-white/5">
+    <div class="flex items-center gap-2">
+      <img src="assets/logo.png" class="w-8 h-8 rounded-full"/>
+      <span class="font-display font-bold text-lg gradient-text">KYVENZA ADMIN</span>
+    </div>
+    <button onclick="sairAdmin()" class="text-xs font-mono text-[#87957b] border border-[#3e4a34] rounded-full px-3 py-1">SAIR</button>
+  </header>
+
+  <nav class="flex gap-2 px-5 pt-4">
+    <a href="alunos.html" class="font-mono text-xs px-3 py-1.5 rounded-full bg-[#1f1f1f] text-[#76ff03] border border-[#3e4a34]">ALUNOS</a>
+    <a href="exercicios.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">EXERCÍCIOS</a>
+    <a href="planos.html" class="font-mono text-xs px-3 py-1.5 rounded-full text-[#87957b] border border-[#3e4a34]">PLANOS</a>
+  </nav>
+
+  <main class="px-5 pt-6">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="font-display text-xl font-bold">Alunos</h1>
+      <button onclick="abrirModalNovoAluno()" class="gradient-cta font-display font-semibold text-sm py-2 px-4 rounded-lg">+ ADICIONAR ALUNO</button>
+    </div>
+
+    <div class="flex gap-2 mb-4">
+      <button onclick="filtrarStatus('todos')" data-filtro="todos" class="filtro-btn font-mono text-xs px-3 py-1.5 rounded-full border border-[#3e4a34] bg-[#1f1f1f]">TODOS</button>
+      <button onclick="filtrarStatus('ativo')" data-filtro="ativo" class="filtro-btn font-mono text-xs px-3 py-1.5 rounded-full border border-[#3e4a34]">ATIVOS</button>
+      <button onclick="filtrarStatus('inativo')" data-filtro="inativo" class="filtro-btn font-mono text-xs px-3 py-1.5 rounded-full border border-[#3e4a34]">INATIVOS</button>
+    </div>
+
+    <input id="busca" type="text" placeholder="Buscar por nome ou e-mail..."
+      class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm mb-5 outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+
+    <div id="lista-alunos" class="space-y-3">
+      <p class="text-sm text-[#87957b] font-mono">Carregando alunos...</p>
+    </div>
+  </main>
+
+  <!-- Modal: adicionar aluno manualmente -->
+  <div id="modal-novo-aluno" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-5">
+    <div class="glass-card rounded-xl p-5 w-full max-w-sm">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-display font-semibold text-lg">Adicionar aluno manual</h3>
+        <button onclick="fecharModalNovoAluno()" class="text-2xl leading-none">×</button>
+      </div>
+      <form id="form-novo-aluno" class="space-y-3">
+        <input id="novo-nome" required placeholder="Nome completo" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <input id="novo-email" type="email" required placeholder="E-mail" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <input id="novo-whatsapp" placeholder="WhatsApp (opcional)" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3] placeholder:text-[#87957b]"/>
+        <select id="novo-plano" class="w-full bg-[#1b1b1b] border border-[#3e4a34] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#00daf3]">
+          <option value="manual">Cortesia / manual</option>
+          <option value="mensal">Mensal</option>
+          <option value="semestral">Semestral</option>
+        </select>
+        <button type="submit" class="w-full gradient-cta font-display font-semibold py-2.5 rounded-lg">SALVAR E ATIVAR</button>
+        <p id="erro-novo-aluno" class="text-sm text-red-400 text-center"></p>
+      </form>
+    </div>
+  </div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let todosOsAlunos = [];
+  let filtroAtual = "todos";
+
+  function abrirModalNovoAluno() { document.getElementById("modal-novo-aluno").classList.remove("hidden"); }
+  function fecharModalNovoAluno() {
+    document.getElementById("modal-novo-aluno").classList.add("hidden");
+    document.getElementById("form-novo-aluno").reset();
+    document.getElementById("erro-novo-aluno").textContent = "";
+  }
+
+  function filtrarStatus(status) {
+    filtroAtual = status;
+    document.querySelectorAll(".filtro-btn").forEach(btn => {
+      const ativo = btn.dataset.filtro === status;
+      btn.classList.toggle("bg-[#1f1f1f]", ativo);
+      btn.classList.toggle("text-[#76ff03]", ativo);
+      btn.classList.toggle("text-[#87957b]", !ativo);
+    });
+    renderizarLista();
+  }
+
+  function renderizarLista() {
+    const busca = document.getElementById("busca").value.trim().toLowerCase();
+    const listaEl = document.getElementById("lista-alunos");
+
+    let filtrados = todosOsAlunos;
+    if (filtroAtual !== "todos") filtrados = filtrados.filter(a => a.status === filtroAtual);
+    if (busca) filtrados = filtrados.filter(a => a.nome.toLowerCase().includes(busca) || a.email.toLowerCase().includes(busca));
+
+    if (filtrados.length === 0) {
+      listaEl.innerHTML = `<p class="text-sm text-[#87957b] font-mono">Nenhum aluno encontrado.</p>`;
+      return;
+    }
+
+    listaEl.innerHTML = filtrados.map(a => `
+      <div class="glass-card rounded-lg p-4 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-display font-semibold truncate">${a.nome}</p>
+          <p class="text-xs text-[#87957b] truncate">${a.email}</p>
+          <p class="text-xs text-[#87957b] font-mono mt-1">${a.plano || "-"} • ${a.origem === "manual" ? "manual" : "mercado pago"}</p>
+        </div>
+        <div class="flex flex-col items-end gap-2 shrink-0">
+          <span class="font-mono text-[10px] px-2 py-0.5 rounded-full border ${a.status === "ativo" ? "border-[#76ff03] text-[#76ff03]" : "border-[#3e4a34] text-[#87957b]"}">${a.status.toUpperCase()}</span>
+          <button onclick="alternarStatus('${a.id}', '${a.status}')" class="font-mono text-[10px] border border-[#3e4a34] rounded-full px-2 py-1">
+            ${a.status === "ativo" ? "INATIVAR" : "ATIVAR"}
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function carregarAlunos() {
+    const { data, error } = await supabase
+      .from("alunos")
+      .select("id, nome, email, status, plano, origem, criado_em")
+      .order("criado_em", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      document.getElementById("lista-alunos").innerHTML = `<p class="text-sm text-red-400">Erro ao carregar alunos.</p>`;
+      return;
+    }
+    todosOsAlunos = data;
+    renderizarLista();
+  }
+
+  async function alternarStatus(alunoId, statusAtual) {
+    const novoStatus = statusAtual === "ativo" ? "inativo" : "ativo";
+    const { error } = await supabase.from("alunos").update({ status: novoStatus, atualizado_em: new Date().toISOString() }).eq("id", alunoId);
+    if (error) {
+      alert("Erro ao atualizar status: " + error.message);
+      return;
+    }
+    await carregarAlunos();
+  }
+
+  document.getElementById("busca").addEventListener("input", renderizarLista);
+
+  document.getElementById("form-novo-aluno").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro-novo-aluno");
+    erroEl.textContent = "";
+
+    const nome = document.getElementById("novo-nome").value.trim();
+    const email = document.getElementById("novo-email").value.trim().toLowerCase();
+    const whatsapp = document.getElementById("novo-whatsapp").value.trim();
+    const plano = document.getElementById("novo-plano").value;
+
+    // Nota: isso cria o REGISTRO do aluno (liberando acesso), mas ele ainda
+    // precisa fazer login com esse e-mail pelo magic link em index.html do app
+    // para vincular a conta (auth_user_id é preenchido no primeiro login).
+    const { error } = await supabase.from("alunos").insert({
+      nome, email, whatsapp: whatsapp || null,
+      status: "ativo",
+      plano,
+      origem: "manual",
+    });
+
+    if (error) {
+      erroEl.textContent = error.code === "23505" ? "Já existe um aluno com esse e-mail." : "Erro ao salvar: " + error.message;
+      return;
+    }
+
+    fecharModalNovoAluno();
+    await carregarAlunos();
+  });
+
+  (async () => {
+    const admin = await exigirAdmin();
+    if (!admin) return;
+    await carregarAlunos();
+  })();
+</script>
+</body>
+</html>

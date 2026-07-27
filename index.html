@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KYVENZA Admin | Entrar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/kyvenza.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center px-6">
+
+  <img src="assets/logo.png" alt="Kyvenza" class="w-20 h-20 rounded-full mb-6 neon-border-cyan"/>
+  <p class="font-mono text-xs text-[#87957b] tracking-widest mb-1">ÁREA RESTRITA</p>
+  <h1 class="font-display text-2xl font-bold mb-8">Kyvenza <span class="gradient-text">Admin</span></h1>
+
+  <form id="form-login" class="w-full max-w-sm space-y-4">
+    <input type="email" id="input-email" required placeholder="seu@email.com"
+      class="w-full bg-transparent border-b border-[#3e4a34] focus:border-[#00daf3] outline-none py-3 placeholder:text-[#87957b]"/>
+    <button type="submit" id="btn-enviar" class="w-full gradient-cta font-display font-semibold py-3 rounded-lg flex items-center justify-center">
+      <span id="btn-texto">ENVIAR LINK DE ACESSO</span>
+    </button>
+  </form>
+
+  <p id="mensagem" class="text-sm text-center mt-6 max-w-xs"></p>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: admin } = await supabase.from("admins").select("id").eq("auth_user_id", session.user.id).maybeSingle();
+      if (admin) window.location.href = "alunos.html";
+    }
+  })();
+
+  const form = document.getElementById("form-login");
+  const btn = document.getElementById("btn-enviar");
+  const btnTexto = document.getElementById("btn-texto");
+  const mensagem = document.getElementById("mensagem");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("input-email").value.trim();
+    btn.disabled = true;
+    btnTexto.innerHTML = '<span class="spinner"></span>';
+    mensagem.textContent = "";
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin + window.location.pathname.replace("index.html", "alunos.html") }
+      });
+
+      if (error) {
+        mensagem.textContent = "Erro ao enviar o link: " + error.message;
+        mensagem.className = "text-sm text-center mt-6 max-w-xs text-red-400";
+      } else {
+        mensagem.textContent = "Link enviado! Confira seu e-mail.";
+        mensagem.className = "text-sm text-center mt-6 max-w-xs text-[#76ff03]";
+      }
+    } catch (err) {
+      console.error(err);
+      mensagem.textContent = "Erro de conexão. Confira sua internet e as credenciais do Supabase no arquivo js/supabase-client.js.";
+      mensagem.className = "text-sm text-center mt-6 max-w-xs text-red-400";
+    } finally {
+      btn.disabled = false;
+      btnTexto.textContent = "ENVIAR LINK DE ACESSO";
+    }
+  });
+</script>
+
+</body>
+</html>
