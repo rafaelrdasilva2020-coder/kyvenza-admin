@@ -67,7 +67,7 @@
     </div>
   </div>
 
-<script src="js/supabase-client.js?v=2"></script>
+<script src="js/supabase-client.js"></script>
 <script>
   let todosOsExercicios = [];
 
@@ -165,7 +165,7 @@
     btn.textContent = "Vinculando... isso pode levar um tempo";
     resultadoEl.classList.add("hidden");
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
 
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/workoutx-vincular-lote`, {
@@ -208,7 +208,7 @@
   }
 
   async function carregarExercicios() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("exercicios")
       .select("id, nome, grupo_muscular, categoria, equipamento, codigo, youtube_id, workoutx_exercise_id, workoutx_matched_nome")
       .eq("ativo", true)
@@ -229,7 +229,7 @@
     const resultadosEl = document.getElementById(`resultados-wx-${exercicioId}`);
     resultadosEl.innerHTML = `<p class="text-xs text-[#87957b] font-mono">Buscando...</p>`;
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
 
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/workoutx-search`, {
@@ -271,7 +271,7 @@
   }
 
   async function vincularGifWorkoutX(exercicioId, workoutxId, nomeEncontrado) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from("exercicios")
       .update({
         workoutx_exercise_id: String(workoutxId),
@@ -291,7 +291,7 @@
     const valorBruto = document.getElementById(`youtube-input-${exercicioId}`).value;
     const youtubeId = extrairYoutubeId(valorBruto);
 
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from("exercicios")
       .update({ youtube_id: youtubeId || null, atualizado_em: new Date().toISOString() })
       .eq("id", exercicioId);
@@ -315,7 +315,7 @@
     const categoria = document.getElementById("novo-ex-categoria").value;
     const youtube_id = extrairYoutubeId(document.getElementById("novo-ex-youtube").value);
 
-    const { error } = await supabase.from("exercicios").insert({ nome, grupo_muscular, categoria, youtube_id: youtube_id || null });
+    const { error } = await supabaseClient.from("exercicios").insert({ nome, grupo_muscular, categoria, youtube_id: youtube_id || null });
 
     if (error) {
       erroEl.textContent = "Erro ao salvar: " + error.message;

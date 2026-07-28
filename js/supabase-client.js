@@ -5,20 +5,20 @@
 const SUPABASE_URL = "https://bkjphntswqbcsrhismig.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Qaug0jOTe5ExSa5GlgvalA_Lng42Ggb";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
  * Exige sessão ativa E que o usuário esteja na tabela `admins`.
  * Se qualquer uma das duas condições falhar, redireciona pro login do admin.
  */
 async function exigirAdmin() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     window.location.href = "index.html";
     return null;
   }
 
-  const { data: admin, error } = await supabase
+  const { data: admin, error } = await supabaseClient
     .from("admins")
     .select("id, email")
     .eq("auth_user_id", session.user.id)
@@ -26,7 +26,7 @@ async function exigirAdmin() {
 
   if (error || !admin) {
     alert("Este login não tem acesso ao painel administrativo.");
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     window.location.href = "index.html";
     return null;
   }
@@ -35,6 +35,6 @@ async function exigirAdmin() {
 }
 
 async function sairAdmin() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   window.location.href = "index.html";
 }

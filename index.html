@@ -25,12 +25,12 @@
 
   <p id="mensagem" class="text-sm text-center mt-6 max-w-xs"></p>
 
-<script src="js/supabase-client.js?v=2"></script>
-   <script>
+<script src="js/supabase-client.js"></script>
+<script>
   (async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
-      const { data: admin } = await supabase.from("admins").select("id").eq("auth_user_id", session.user.id).maybeSingle();
+      const { data: admin } = await supabaseClient.from("admins").select("id").eq("auth_user_id", session.user.id).maybeSingle();
       if (admin) window.location.href = "alunos.html";
     }
   })();
@@ -48,7 +48,7 @@
     mensagem.textContent = "";
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabaseClient.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: window.location.origin + window.location.pathname.replace("index.html", "alunos.html") }
       });

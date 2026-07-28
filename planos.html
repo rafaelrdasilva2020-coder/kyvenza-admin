@@ -59,7 +59,7 @@
     </div>
   </div>
 
-<script src="js/supabase-client.js?v=2"></script>
+<script src="js/supabase-client.js"></script>
 <script>
   function abrirModalNovoPlano() { document.getElementById("modal-novo-plano").classList.remove("hidden"); }
   function fecharModalNovoPlano() {
@@ -69,7 +69,7 @@
   }
 
   async function carregarPlanos() {
-    const { data, error } = await supabase.from("planos_assinatura").select("*").order("frequencia_meses", { ascending: true });
+    const { data, error } = await supabaseClient.from("planos_assinatura").select("*").order("frequencia_meses", { ascending: true });
     const listaEl = document.getElementById("lista-planos");
 
     if (error) {
@@ -102,7 +102,7 @@
   }
 
   async function alternarPlanoAtivo(id, ativoAtual) {
-    await supabase.from("planos_assinatura").update({ ativo: !ativoAtual, atualizado_em: new Date().toISOString() }).eq("id", id);
+    await supabaseClient.from("planos_assinatura").update({ ativo: !ativoAtual, atualizado_em: new Date().toISOString() }).eq("id", id);
     await carregarPlanos();
   }
 
@@ -121,7 +121,7 @@
       frequencia_meses: parseInt(document.getElementById("novo-frequencia").value, 10),
     };
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
 
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/mercadopago-criar-plano`, {
