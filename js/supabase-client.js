@@ -2,8 +2,8 @@
 // KYVENZA ADMIN — Configuração do Supabase
 // =========================================================
 // Use os MESMOS valores do app/js/supabase-client.js (mesmo projeto Supabase).
-const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
-const SUPABASE_ANON_KEY = "SUA_ANON_KEY_AQUI";
+const SUPABASE_URL = "https://bkjphntswqbcsrhismig.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Qaug0jOTe5ExSa5GlgvalA_Lng42Ggb";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
