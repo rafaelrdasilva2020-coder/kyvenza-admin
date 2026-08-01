@@ -12,14 +12,28 @@
 <body class="min-h-screen flex flex-col items-center justify-center px-6">
 
   <img src="assets/logo.png" alt="Kyvenza" class="w-20 h-20 rounded-full mb-6 neon-border-cyan"/>
-  <p class="font-mono text-xs text-[#87957b] tracking-widest mb-1">ÁREA RESTRITA</p>
+  <p class="label-mono mb-1">ÁREA RESTRITA</p>
   <h1 class="font-display text-2xl font-bold mb-8">Kyvenza <span class="gradient-text">Admin</span></h1>
 
   <form id="form-login" class="w-full max-w-sm space-y-4">
-    <input type="email" id="input-email" required placeholder="seu@email.com"
-      class="w-full bg-transparent border-b border-[#3e4a34] focus:border-[#00daf3] outline-none py-3 placeholder:text-[#87957b]"/>
-    <button type="submit" id="btn-enviar" class="w-full gradient-cta font-display font-semibold py-3 rounded-lg flex items-center justify-center">
-      <span id="btn-texto">ENVIAR LINK DE ACESSO</span>
+    <input
+      type="email"
+      id="input-email"
+      required
+      placeholder="seu@email.com"
+      autocomplete="email"
+      class="w-full bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:border-[#00daf3] outline-none py-3 text-[#f2f1ed] placeholder:text-[#8b9284]"
+    />
+    <input
+      type="password"
+      id="input-senha"
+      required
+      placeholder="Sua senha"
+      autocomplete="current-password"
+      class="w-full bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:border-[#00daf3] outline-none py-3 text-[#f2f1ed] placeholder:text-[#8b9284]"
+    />
+    <button type="submit" id="btn-entrar" class="w-full gradient-cta-hero font-display font-semibold py-3 rounded-lg flex items-center justify-center">
+      <span id="btn-texto">ENTRAR</span>
     </button>
   </form>
 
@@ -36,37 +50,52 @@
   })();
 
   const form = document.getElementById("form-login");
-  const btn = document.getElementById("btn-enviar");
+  const btn = document.getElementById("btn-entrar");
   const btnTexto = document.getElementById("btn-texto");
   const mensagem = document.getElementById("mensagem");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("input-email").value.trim();
+    const senha = document.getElementById("input-senha").value;
     btn.disabled = true;
     btnTexto.innerHTML = '<span class="spinner"></span>';
     mensagem.textContent = "";
 
     try {
-      const { error } = await supabaseClient.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin + window.location.pathname.replace("index.html", "alunos.html") }
-      });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
 
       if (error) {
-        mensagem.textContent = "Erro ao enviar o link: " + error.message;
+        mensagem.textContent = "E-mail ou senha incorretos.";
         mensagem.className = "text-sm text-center mt-6 max-w-xs text-red-400";
-      } else {
-        mensagem.textContent = "Link enviado! Confira seu e-mail.";
-        mensagem.className = "text-sm text-center mt-6 max-w-xs text-[#76ff03]";
+        btn.disabled = false;
+        btnTexto.textContent = "ENTRAR";
+        return;
       }
+
+      // Confirma que esse usuário é mesmo admin antes de deixar entrar
+      const { data: admin } = await supabaseClient
+        .from("admins")
+        .select("id")
+        .eq("auth_user_id", data.user.id)
+        .maybeSingle();
+
+      if (!admin) {
+        mensagem.textContent = "Essa conta não tem acesso de administrador.";
+        mensagem.className = "text-sm text-center mt-6 max-w-xs text-red-400";
+        await supabaseClient.auth.signOut();
+        btn.disabled = false;
+        btnTexto.textContent = "ENTRAR";
+        return;
+      }
+
+      window.location.href = "alunos.html";
     } catch (err) {
       console.error(err);
       mensagem.textContent = "Erro de conexão. Confira sua internet e as credenciais do Supabase no arquivo js/supabase-client.js.";
       mensagem.className = "text-sm text-center mt-6 max-w-xs text-red-400";
-    } finally {
       btn.disabled = false;
-      btnTexto.textContent = "ENVIAR LINK DE ACESSO";
+      btnTexto.textContent = "ENTRAR";
     }
   });
 </script>
